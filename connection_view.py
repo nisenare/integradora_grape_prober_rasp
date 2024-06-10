@@ -1,10 +1,13 @@
 import threading
 import tkinter as tk
-from tkinter import DISABLED, LEFT, StringVar, ttk
+from tkinter import DISABLED, END, LEFT, RIGHT, Y, StringVar, Toplevel, ttk
 from PIL import Image, ImageTk
 from wifi import *
 import subprocess
+import signal
+import os
 import constants
+import onboard_keyboard
 
 class ConnectionView(tk.Frame):
 
@@ -48,7 +51,7 @@ class ConnectionView(tk.Frame):
                               sticky = "nwe")
 
         # frame inferior, lista de redes
-        self.bottom_frame = tk.Frame(self, bg = "green")
+        self.bottom_frame = tk.Frame(self)
         self.bottom_frame.grid(row = 1,
                                column = 0,
                                columnspan = 1,
@@ -61,11 +64,27 @@ class ConnectionView(tk.Frame):
         self.bottom_frame.columnconfigure(0, weight = 1)
 
         self.av_networks_list = ttk.Treeview(self.bottom_frame)
+        self.av_networks_list.heading("#0", text="Available networks")
+
+        self.style = ttk.Style(self)
+        self.style.configure('Treeview', rowheight = 45, font = constants.data_label_font_mini)
+        self.style.configure("Vertical.TScrollbar", arrowsize = 40)
+
+        self.tree_scroll = ttk.Scrollbar(self.bottom_frame, style = "TScrollbar")
+        self.tree_scroll.configure(command=self.av_networks_list.yview)
+
+        self.av_networks_list.configure(yscrollcommand=self.tree_scroll.set)
+
         self.av_networks_list.grid(row = 0,
                                    column = 0,
                                    columnspan = 1,
                                    sticky = "nswe")
+        self.tree_scroll.grid(row = 0,
+                                column = 1,
+                                columnspan = 1,
+                                sticky = "nswe")
         
+        self.av_networks_list.bind("<Double-1>", self.__get_password)
         # thread
         self.__update_conn_status()
 
@@ -92,7 +111,7 @@ class ConnectionView(tk.Frame):
         self.current_wifi = None
 
         try:
-            self.wifi_list = Cell.all('wlan0')
+            self.wifi_list = list(Cell.all('wlan0'))
         except:
             pass
 
@@ -107,13 +126,9 @@ class ConnectionView(tk.Frame):
         for network in self.wifi_list:
             if (network.ssid == current_wifi_name):
                 self.current_wifi = network
-            img = self.__get_signal_quality_icon(network.signal).copy()
-            img.height = 5
-            img.width = 5
             self.av_networks_list.insert("",
                                         tk.END,
-                                        text = network.ssid,
-                                        image = img)
+                                        text = network.ssid)
 
         if not (self.current_wifi is None):
             self.current_con_label.config(
@@ -125,9 +140,112 @@ class ConnectionView(tk.Frame):
                 image = self.wifi_off_icon,
                 text = " Please select a network!"
             )
-
+            
         self.__conn_status_timer = threading.Timer(5.0, self.__update_conn_status)
         self.__conn_status_timer.daemon = True
         self.__conn_status_timer.start()
-        
 
+
+    def __get_password(self, event):
+        focused = self.av_networks_list.item(self.av_networks_list.focus())
+        ssid = focused["text"]
+        this_network = None
+
+        for network in self.wifi_list:
+            if (network.ssid == ssid):
+                this_network = network
+                break
+
+        if (this_network is None):
+            return
+        
+        if not (this_network.encrypted):
+            self.__connect_to(this_network, "", False)
+            return
+        
+        top = Toplevel(self)
+        top.title("Child Window")
+        top.overrideredirect(1)
+        x = self.winfo_width()//2 - top.winfo_width()//2
+        y = self.winfo_height()//2 - top.winfo_height()//2 - 50
+        top.geometry(f"+{x}+{y}")
+
+        #layout
+        top.rowconfigure(0, weight = 1)
+        top.rowconfigure(1, weight = 1)
+        top.rowconfigure(2, weight = 1)
+        top.columnconfigure(0, weight = 1)
+        top.columnconfigure(1, weight = 1)
+    
+        label_passwd = tk.Label(top, text = "Password for " + ssid + ":")
+        textbox_passwd = tk.Entry(top, show = "*", font = ("Noto Sans Mono", 14))
+        button_cancel = tk.Button(top, 
+                                  text = "Cancel",
+                                  font = constants.button_font_mini,
+                                  background="CadetBlue",
+                                  activebackground="CadetBlue",
+                                  command= lambda: self.__destroy_popup(top))
+        button_ok = tk.Button(top,
+                              text="Ok",
+                              font = constants.button_font_mini,
+                              background="CadetBlue",
+                              activebackground="CadetBlue",
+                              command= lambda: self.__connect_to(this_network, textbox_passwd.get(), top, True))
+
+        label_passwd.grid(row = 0,
+                          column = 0,
+                          columnspan= 2,
+                          pady = (10, 0),
+                          padx = (10, 10),
+                          sticky = "nswe")
+        textbox_passwd.grid(row = 1,
+                            column = 0,
+                            columnspan = 2,
+                            pady = (5, 10),
+                            padx = (10, 10),
+                            sticky = "nswe")
+        button_cancel.grid(row = 2,
+                           column = 0,
+                           columnspan = 1,
+                           padx = (10, 5),
+                           pady = (0, 10),
+                           sticky = "nswe")
+        button_ok.grid(row = 2,
+                       column = 1,
+                       columnspan = 1,
+                       padx= (5, 10),
+                       pady = (0, 10),
+                       sticky = "nswe")
+
+        textbox_passwd.bind("<FocusIn>", self.__show_keyboard)
+        textbox_passwd.bind("<FocusOut>", self.__hide_keyboard)
+
+    def __connect_to(self, network, passwd: str, top = None, encrypted = True):
+        scheme = None
+        try:
+            if not (encrypted):
+                scheme = Scheme.for_cell('wlan0', network.ssid, network)
+                scheme.save()
+                scheme.activate()
+            else:
+                scheme = Scheme.for_cell('wlan0', network.ssid, network, passwd)
+                scheme.save()
+                scheme.activate()
+        except AssertionError as e:
+            scheme.activate()
+            pass
+        except ConnectionError as e:
+            pass
+        if not (top is None):
+            top.destroy()
+        onboard_keyboard.hide_keyboard()
+
+    def __destroy_popup(self, popup):
+        onboard_keyboard.hide_keyboard()
+        popup.destroy()
+
+    def __show_keyboard(self, event):
+        onboard_keyboard.show_keyboard()
+
+    def __hide_keyboard(self, event):
+        onboard_keyboard.hide_keyboard()
