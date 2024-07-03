@@ -6,3 +6,4 @@ data_label_font_mini = ("Noto Sans Mono", 16)
 button_font = ("Arial", 28 )
 button_font_mini = ("Arial", 14)
 absolute_path = "/home/nisenare/grape_prober/"
+backend_url = "http://150.136.210.3:8000"

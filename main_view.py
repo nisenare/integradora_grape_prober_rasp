@@ -1,8 +1,12 @@
+import datetime
 import tkinter as tk
-from tkinter import DISABLED, LEFT, StringVar, ttk
+from tkinter import DISABLED, LEFT, NORMAL, StringVar, ttk
 from PIL import Image, ImageTk
+import cv2
+import requests
 import constants
 import arduino_com
+import camera
 
 class MainView(tk.Frame):
 
@@ -48,6 +52,7 @@ class MainView(tk.Frame):
         self.scan_ph_button.grid(row = 1, column = 0, columnspan = 1, sticky = "nsew")
 
         # frame de la der - Foto
+        self.cam_top = None
         self.right_frame = tk.Frame(self)
         self.right_frame.grid(row = 0,
                               column = 1,
@@ -65,6 +70,11 @@ class MainView(tk.Frame):
                                     image = self.photo_icon_30p,
                                     font = constants.data_label_font_bold,
                                     background="gray74")
+        
+        # La foto que va en vez del placeholder, una vez tomada.
+        self.photo_arr = None
+        self.photo_arr_resized = None
+
         self.camera_icon_17p = tk.PhotoImage(file = constants.absolute_path + "resource/icon/camera_icon_google_17p.png")
         self.photo_button = tk.Button(self.right_frame,
                                         image = self.camera_icon_17p,
@@ -72,7 +82,8 @@ class MainView(tk.Frame):
                                         compound = LEFT,
                                         font = constants.button_font,
                                         background="CadetBlue",
-                                        activebackground="CadetBlue")
+                                        activebackground="CadetBlue",
+                                        command = lambda: camera.open_camera(self))
         
         self.photo_label.grid(row = 0, column = 0, columnspan = 1, sticky = "nsew")
         self.photo_button.grid(row = 1, column = 0, columnspan = 1, sticky = "nsew")
@@ -108,29 +119,53 @@ class MainView(tk.Frame):
         self.reset_button.grid(row = 0, column = 0, sticky = "swe", pady = (0, 10))
         self.submit_button.grid(row = 1, column = 0, sticky = "swe")
         
+
     def __reset_all_values(self):
         self.last_ph_val.set("0.00")
-        # TODO: Reset image
-        self.submit_button.config(state = DISABLED)
+        self.photo_arr = None
+        self.photo_arr_resized = None
+        self.photo_label.config(image = self.photo_icon_30p)
+        self.toggle_disable_submit()
+
 
     def __get_ph_value(self):
         ph_val_str = "..."
         self.last_ph_val.set(ph_val_str)
+
         try:
             ph_val_str = arduino_com.send_and_wait("PH")
         except:
             ph_val_str = "NO_CON"
             pass
-        self.last_ph_val.set(ph_val_str)
-        
-    def __open_camera(self):
-        #TODO: Toggle a window with the camera view
-        pass
 
-    def __toggle_disable_submit(self):
-        # TODO
-        pass
+        self.last_ph_val.set(ph_val_str)
+        self.toggle_disable_submit()
+        
+
+    def toggle_disable_submit(self):
+        if (self.last_ph_val.get() == "0.00"
+            or self.last_ph_val.get() == "NO_CON"
+            or self.photo_arr is None):
+            self.submit_button.config(state = DISABLED)
+            return
+
+        self.submit_button.config(state = NORMAL)
+
 
     def __submit_data(self):
-        # TODO: Submit data to the cloud
-        pass
+        ret, buffer = cv2.imencode(".jpeg", self.photo_arr)
+        
+        if not ret:
+            return
+        
+        image_file = { "image": buffer}
+        data = {
+            "ph": float(self.last_ph_val.get()),
+            "date_time": str(datetime.datetime.now()),
+        }
+
+        r = requests.post(constants.backend_url + "/api/sensequery",
+                          data = data,
+                          files = image_file)
+
+        print(r.text)
