@@ -4,6 +4,7 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 import main_view
 import connection_view
+import power_view
 import constants
 
 global window
@@ -19,13 +20,19 @@ def main():
     box = ttk.Notebook(window)
 
     home_tab = main_view.MainView(window)
-    home_icon = ImageTk.PhotoImage(Image.open(constants.absolute_path + "/resource/icon/home_icon_google.png"))
+    home_icon = ImageTk.PhotoImage(
+        Image.open(constants.absolute_path + "/resource/icon/home_icon_google.png")
+    )
 
     conn_tab = connection_view.ConnectionView(window)
-    conn_icon = ImageTk.PhotoImage(Image.open(constants.absolute_path + "/resource/icon/wifi_icon_google.png"))
+    conn_icon = ImageTk.PhotoImage(
+        Image.open(constants.absolute_path + "/resource/icon/wifi_icon_google.png")
+    )
 
-    power_tab = tk.Frame(window)
-    power_icon = ImageTk.PhotoImage(Image.open(constants.absolute_path + "/resource/icon/power_icon_google.png"))
+    power_tab = power_view.PowerView(window)
+    power_icon = ImageTk.PhotoImage(
+        Image.open(constants.absolute_path + "/resource/icon/power_icon_google.png")
+    )
 
     box.add(home_tab, image=home_icon)
     box.add(conn_tab, image=conn_icon)

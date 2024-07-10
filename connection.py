@@ -31,7 +31,7 @@ class Finder:
         except:
             return False
         else:
-            return True # Connected
+            return True
 
 
     def connection_no_password(self, name):
@@ -44,4 +44,4 @@ class Finder:
         except:
             return False
         else:
-            return True # Connected
+            return True

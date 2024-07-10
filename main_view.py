@@ -7,6 +7,7 @@ import requests
 import constants
 import arduino_com
 import camera
+import popups
 
 class MainView(tk.Frame):
 
@@ -15,6 +16,11 @@ class MainView(tk.Frame):
         
         # miembros
         self.last_ph_val = StringVar(value="0.00")
+        self.photo_arr = None
+        self.photo_arr_resized = None
+        self.temp_popup = None
+        self.temp_annotated_img = None
+        self.error_icon_17p = tk.PhotoImage(file = constants.absolute_path + "resource/icon/error_icon_google_17p.png")
 
         #layout
         self.rowconfigure(0, weight = 1)
@@ -52,7 +58,6 @@ class MainView(tk.Frame):
         self.scan_ph_button.grid(row = 1, column = 0, columnspan = 1, sticky = "nsew")
 
         # frame de la der - Foto
-        self.cam_top = None
         self.right_frame = tk.Frame(self)
         self.right_frame.grid(row = 0,
                               column = 1,
@@ -70,10 +75,6 @@ class MainView(tk.Frame):
                                     image = self.photo_icon_30p,
                                     font = constants.data_label_font_bold,
                                     background="gray74")
-        
-        # La foto que va en vez del placeholder, una vez tomada.
-        self.photo_arr = None
-        self.photo_arr_resized = None
 
         self.camera_icon_17p = tk.PhotoImage(file = constants.absolute_path + "resource/icon/camera_icon_google_17p.png")
         self.photo_button = tk.Button(self.right_frame,
@@ -83,7 +84,7 @@ class MainView(tk.Frame):
                                         font = constants.button_font,
                                         background="CadetBlue",
                                         activebackground="CadetBlue",
-                                        command = lambda: camera.open_camera(self))
+                                        command = lambda: popups.open_camera(self))
         
         self.photo_label.grid(row = 0, column = 0, columnspan = 1, sticky = "nsew")
         self.photo_button.grid(row = 1, column = 0, columnspan = 1, sticky = "nsew")
@@ -118,13 +119,16 @@ class MainView(tk.Frame):
         
         self.reset_button.grid(row = 0, column = 0, sticky = "swe", pady = (0, 10))
         self.submit_button.grid(row = 1, column = 0, sticky = "swe")
-        
+
 
     def __reset_all_values(self):
         self.last_ph_val.set("0.00")
         self.photo_arr = None
         self.photo_arr_resized = None
-        self.photo_label.config(image = self.photo_icon_30p)
+        self.photo_label.config(
+            image = self.photo_icon_30p,
+            background = "gray74"
+        )
         self.toggle_disable_submit()
 
 
@@ -164,8 +168,16 @@ class MainView(tk.Frame):
             "date_time": str(datetime.datetime.now()),
         }
 
-        r = requests.post(constants.backend_url + "/api/sensequery",
-                          data = data,
-                          files = image_file)
+        try:
+            r = requests.post(constants.backend_url + "/api/sensequery",
+                              data = data,
+                              files = image_file,
+                              timeout = 12)
+            popups.show_results(self, r)
+        except ConnectionError:
+            popups.show_err_popup(self, "Connection Error. Check your network parameters!")
+            return
+        except TimeoutError:
+            popups.show_err_popup(self, "Connection Timeout. Check your network parameters!")
+            return
 
-        print(r.text)

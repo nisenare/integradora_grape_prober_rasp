@@ -9,6 +9,7 @@ import os
 import constants
 import onboard_keyboard
 import connection
+import popups
 
 class ConnectionView(tk.Frame):
 
@@ -84,10 +85,11 @@ class ConnectionView(tk.Frame):
                                 column = 1,
                                 columnspan = 1,
                                 sticky = "nswe")
-        self.top = None
+        self.temp_popup = None
         self.av_networks_list.bind("<Double-Button-1>", self.__get_password)
         # thread
         self.__update_conn_status()
+
 
     def __get_signal_quality_icon(self, dBm: int):
         quality = 0
@@ -106,6 +108,7 @@ class ConnectionView(tk.Frame):
             return self.wifi_icon_3
         else:
             return self.wifi_icon_4
+
 
     def __update_conn_status(self):
         self.wifi_list = []
@@ -148,8 +151,7 @@ class ConnectionView(tk.Frame):
 
 
     def __get_password(self, event):
-
-        if not (self.top == None):
+        if not (self.temp_popup == None):
             return
 
         focused = self.av_networks_list.item(self.av_networks_list.focus())
@@ -168,28 +170,28 @@ class ConnectionView(tk.Frame):
             self.__connect_to(this_network, "", False)
             return
         
-        self.top = Toplevel(self)
-        self.top.overrideredirect(1)
-        x = self.winfo_width()//2 - self.top.winfo_width()//2
-        y = self.winfo_height()//2 - self.top.winfo_height()//2 - 80
-        self.top.geometry(f"+{x}+{y}")
+        self.temp_popup = Toplevel(
+            self,
+            borderwidth = 1,
+            relief = 'solid'
+        )
 
         #layout
-        self.top.rowconfigure(0, weight = 1)
-        self.top.rowconfigure(1, weight = 1)
-        self.top.rowconfigure(2, weight = 1)
-        self.top.columnconfigure(0, weight = 1)
-        self.top.columnconfigure(1, weight = 1)
+        self.temp_popup.rowconfigure(0, weight = 1)
+        self.temp_popup.rowconfigure(1, weight = 1)
+        self.temp_popup.rowconfigure(2, weight = 1)
+        self.temp_popup.columnconfigure(0, weight = 1)
+        self.temp_popup.columnconfigure(1, weight = 1)
     
-        label_passwd = tk.Label(self.top, text = "Password for " + ssid + ":")
-        textbox_passwd = tk.Entry(self.top, show = "*", font = ("Noto Sans Mono", 14))
-        button_cancel = tk.Button(self.top, 
+        label_passwd = tk.Label(self.temp_popup, text = "Password for " + ssid + ":")
+        textbox_passwd = tk.Entry(self.temp_popup, show = "*", font = ("Noto Sans Mono", 14))
+        button_cancel = tk.Button(self.temp_popup, 
                                   text = "Cancel",
                                   font = constants.button_font_mini,
                                   background="CadetBlue",
                                   activebackground="CadetBlue",
                                   command= lambda: self.__destroy_popup())
-        button_ok = tk.Button(self.top,
+        button_ok = tk.Button(self.temp_popup,
                               text="Ok",
                               font = constants.button_font_mini,
                               background="CadetBlue",
@@ -224,6 +226,13 @@ class ConnectionView(tk.Frame):
         textbox_passwd.bind("<FocusIn>", self.__show_keyboard)
         textbox_passwd.bind("<FocusOut>", self.__hide_keyboard)
 
+        self.temp_popup.overrideredirect(1)
+        self.temp_popup.wait_visibility()
+        x = 320 - self.temp_popup.winfo_width()//2
+        y = 240 - self.temp_popup.winfo_height()//2
+        self.temp_popup.geometry(f"+{x}+{y}")
+
+
     def __connect_to(self, network, passwd: str, encrypted = True):
         if not (encrypted):
             finder = connection.Finder(
@@ -238,16 +247,22 @@ class ConnectionView(tk.Frame):
                 password = passwd,
                 interface = "wlan0",
             )
-            finder.connection("\"" + network.ssid + "\"")
+            if finder.connection("\"" + network.ssid + "\""):
+                pass
+            else:
+                popups.show_err_popup(self, "Incorrect credentials.")
         self.__destroy_popup()
 
+
     def __destroy_popup(self):
-        self.top.destroy()
-        self.top = None
+        self.temp_popup.destroy()
+        self.temp_popup = None
         onboard_keyboard.hide_keyboard()
+
 
     def __show_keyboard(self, event):
         onboard_keyboard.show_keyboard()
+
 
     def __hide_keyboard(self, event):
         onboard_keyboard.hide_keyboard()
