@@ -11,7 +11,6 @@ from camera import VideoLabel
 from PIL import Image
 from PIL import ImageTk
 
-# ---------------- FOR THE MAIN VIEW ---------------- 
 def open_camera(parent):
     if not (parent.temp_popup == None):
         return
@@ -81,7 +80,6 @@ def show_results(parent, response):
             )
         )
     )
-    annotated_image = annotated_image.resize((440, 260))
     ph = json_response["ph"]
     overall_maturity = json_response["overall_maturity"]
 
@@ -97,17 +95,6 @@ def show_results(parent, response):
     parent.temp_popup.rowconfigure(1, weight = 1)
     parent.temp_popup.columnconfigure(0, weight = 1)
     parent.temp_popup.columnconfigure(1, weight = 1)
-
-    # results label
-    results_label = tk.Label(parent.temp_popup,
-                             font = constants.data_label_font_mini,
-                             text = f"PH:\n{ph}\n" +
-                             f"Overall Maturity:\n{overall_maturity}\n"
-    )
-    results_label.grid(row = 0,
-                       column = 0,
-                       columnspan = 1
-    )
     
     # Image Label
     img = ImageTk.PhotoImage(image = annotated_image)
@@ -115,11 +102,25 @@ def show_results(parent, response):
     image_label = tk.Label(parent.temp_popup,
                            image = parent.temp_annotated_img)
     image_label.grid(row = 0,
-                     column = 1,
-                     columnspan = 1,
+                     column = 0,
+                     columnspan = 2,
                      sticky = "nswe",
                      padx = (10, 10),
                      pady = (10, 5))
+    
+    # results label
+    results_label = tk.Label(parent.temp_popup,
+                             font = constants.data_label_font_mini,
+                             text = f"PH: {ph}\n" +
+                             f"Overall Maturity: {overall_maturity}\n"
+    )
+    results_label.grid(row = 1,
+                       column = 0,
+                       columnspan = 1,
+                       sticky = "ns",
+                       padx = (10, 0),
+                       pady = (10, 10)
+    )
     
     # Ok button
     button_ok = tk.Button(parent.temp_popup, 
@@ -301,7 +302,7 @@ def __center_popup(parent, is_video_label = False):
         parent.temp_popup.wait_visibility()
         x = 320 - parent.temp_popup.winfo_width()//2
         y = 240 - parent.temp_popup.winfo_height()//2
-        parent.temp_popup.geometry(f"640x480+{x}+{y}")
+        parent.temp_popup.geometry(f"+{x}+{y}")
 
 
 def __destroy_popup(parent):
