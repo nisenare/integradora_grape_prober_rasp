@@ -235,14 +235,14 @@ class ConnectionView(tk.Frame):
 
     def __connect_to(self, network, passwd: str, encrypted = True):
         if not (encrypted):
-            finder = connection.Finder(
+            finder = connection.WifiFinder(
                 server_name = "localhost",
                 password = "",
                 interface = "wlan0",
             )
             finder.connection_no_password("\"" + network.ssid + "\"")
         else:
-            finder = connection.Finder(
+            finder = connection.WifiFinder(
                 server_name = "localhost",
                 password = passwd,
                 interface = "wlan0",

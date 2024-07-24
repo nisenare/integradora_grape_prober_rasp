@@ -51,10 +51,6 @@ class VideoLabel(tk.Label):
             self.after(self.__delay, self.__update_frame)
 
 
-    def change_cam_index(self, new_index):
-        self.__cap.set_new_src(new_index)
-
-
     def get_frame(self):
         return self.__cap.get_frame()[1]
 
@@ -67,20 +63,18 @@ class ThreadedVideoCapture:
 
     def __init__(self):
         Picamera2.set_logging(Picamera2.ERROR)
-        self.tuning = Picamera2.load_tuning_file("ov5647.json")
+        self.__tuning = Picamera2.load_tuning_file("ov5647.json")
         self.__cap = Picamera2(
-            tuning = self.tuning)
-        self.config = self.__cap.create_preview_configuration(
+            tuning = self.__tuning)
+        self.__config = self.__cap.create_preview_configuration(
             main={"size": (620, 380)}
         )
-        self.__cap.configure(self.config)
+        self.__cap.configure(self.__config)
         self.__cap.start()
         self.__thread = threading.Thread(target = self.__process)
         self.__video_stop = threading.Event()
         self.ret = False
         self.frame = None
-        self.__height = 0
-        self.__width = 0
 
 
     def __process(self):
@@ -108,10 +102,3 @@ class ThreadedVideoCapture:
     def get_frame(self):
         return self.ret, self.frame
     
-
-    def get_height(self):
-        return self.__height
-    
-
-    def get_width(self):
-        return self.__width
